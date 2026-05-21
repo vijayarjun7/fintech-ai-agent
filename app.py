@@ -260,98 +260,152 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# TAB 3 — TEST CASE GENERATOR
+# SECTION 3 — RISK REPORT GENERATOR
 # ═══════════════════════════════════════════════════════════════════════════
 
-_test_case_store: list[dict] = []
+RISK_SYSTEM_PROMPT = (
+    "You are a senior AML compliance officer. "
+    "Generate a formal risk assessment report. "
+    "Be precise, cite specific regulations (BSA, FATF, FinCEN). "
+    "Never fabricate regulatory references. "
+    "Return valid JSON only."
+)
 
 
-def _check_pinecone_duplicate(description: str) -> str:
-    if not PINECONE_ENABLED:
-        return "Pinecone not configured — duplicate check skipped."
-    try:
-        index_name = os.environ.get("PINECONE_INDEX", "ai-qe-agent")
-        namespace = os.environ.get("PINECONE_NAMESPACE", "fintech-testcases")
-        index = _pc.Index(index_name)
-        vec = _embed_model.encode(description).tolist()
-        results = index.query(vector=vec, top_k=1, include_metadata=True, namespace=namespace)
-        if results.matches and results.matches[0].score > 0.92:
-            meta = results.matches[0].metadata or {}
-            return f"Similar test case exists (score {results.matches[0].score:.2f}): {meta.get('description', 'N/A')}"
-        return "No duplicate found in vector store."
-    except Exception as e:
-        return f"Duplicate check error: {str(e)}"
+@traceable(name="risk_report_generation")
+def generate_risk_report(
+    customer_name: str,
+    account_type: str,
+    transaction_history: str,
+    country: str,
+    income_range: str,
+):
+    if not customer_name.strip() or not transaction_history.strip():
+        return (
+            '<p style="color:#ef4444">Please fill in Customer Name and Transaction History.</p>',
+            "",
+            "",
+            "",
+        )
 
+    prompt = f"""Generate a formal AML risk assessment report for this customer profile.
 
-@traceable(name="test_case_generation")
-def generate_test_cases(feature: str):
-    if not feature.strip():
-        return "", "", "Please enter a feature description.", ""
+CUSTOMER PROFILE:
+- Name: {customer_name}
+- Account Type: {account_type}
+- Country of Origin: {country}
+- Monthly Income Range: {income_range}
 
-    prompt = f"""Generate exactly 5 QA test cases for this banking app feature: {feature}
+TRANSACTION HISTORY:
+{transaction_history}
 
 Respond with ONLY valid JSON (no markdown, no code blocks):
 {{
-  "test_cases": [
-    {{
-      "id": "TC001",
-      "title": "<short title>",
-      "steps": "<numbered steps>",
-      "expected": "<expected result>",
-      "quality_score": <float 0.0-1.0>,
-      "specificity_score": <float 0.0-1.0>
-    }}
-  ]
-}}
-
-Generate exactly 5 test cases covering: happy path, edge cases, error handling, security, performance."""
+  "risk_level": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+  "risk_score": <integer 0-100>,
+  "report": {{
+    "customer_profile": "<text>",
+    "transaction_analysis": "<text>",
+    "red_flags": ["flag1", "flag2"],
+    "regulatory_considerations": "<text>",
+    "recommended_actions": ["action1", "action2"],
+    "compliance_notes": "<text>"
+  }},
+  "faithfulness_score": <float 0.0-1.0>,
+  "hallucination_risk": "LOW" | "MEDIUM" | "HIGH"
+}}"""
 
     try:
-        raw = _call_claude(prompt)
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=MAX_TOKENS,
+            system=RISK_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.content[0].text
         raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("```").strip()
         data = json.loads(raw)
-        cases = data.get("test_cases", [])
     except Exception as e:
-        return "", "", f"Generation error: {str(e)}", ""
-
-    if not cases:
-        return "", "", "No test cases generated.", ""
-
-    # Build markdown table
-    table_md = "| ID | Title | Steps | Expected | Quality | Specificity |\n"
-    table_md += "|---|---|---|---|---|---|\n"
-    for tc in cases:
-        q = float(tc.get("quality_score", 0.8))
-        s = float(tc.get("specificity_score", 0.8))
-        table_md += (
-            f"| {tc.get('id','')} | {tc.get('title','')} | "
-            f"{tc.get('steps','')} | {tc.get('expected','')} | "
-            f"{q:.0%} | {s:.0%} |\n"
+        return (
+            f'<p style="color:#ef4444">Error: {str(e)}</p>',
+            "",
+            "",
+            "",
         )
 
-    # Eval scores summary
-    avg_q = sum(float(tc.get("quality_score", 0.8)) for tc in cases) / len(cases)
-    avg_s = sum(float(tc.get("specificity_score", 0.8)) for tc in cases) / len(cases)
-    eval_md = f"**Avg Quality:** {avg_q:.0%}  \n**Avg Specificity:** {avg_s:.0%}  \n**Cases Generated:** {len(cases)}"
+    risk_level = data.get("risk_level", "MEDIUM").upper()
+    risk_score = int(data.get("risk_score", 50))
+    report = data.get("report", {})
+    faithfulness = float(data.get("faithfulness_score", 0.8))
+    hal_risk = data.get("hallucination_risk", "MEDIUM").upper()
 
-    _update_metrics(quality_score=(avg_q + avg_s) / 2)
+    _update_metrics(
+        quality_score=faithfulness,
+        hallucination=hal_risk == "HIGH",
+        risk_alert=risk_level in ("HIGH", "CRITICAL"),
+    )
 
-    # Store for export
-    _test_case_store.clear()
-    _test_case_store.extend(cases)
+    # Risk level badge
+    badge_colors = {
+        "LOW":      ("#22c55e", "#052e16"),
+        "MEDIUM":   ("#f59e0b", "#1c1400"),
+        "HIGH":     ("#ef4444", "#1c0000"),
+        "CRITICAL": ("#7f1d1d", "#1c0000"),
+    }
+    fg, bg = badge_colors.get(risk_level, ("#94a3b8", "#0f172a"))
+    badge_html = (
+        f'<div style="display:inline-block;background:{bg};border:2px solid {fg};'
+        f'border-radius:8px;padding:10px 24px;font-size:22px;font-weight:800;color:{fg}">'
+        f'{risk_level}</div>'
+    )
 
-    dup_status = _check_pinecone_duplicate(feature)
+    # Progress bar (0-100)
+    bar_color = {"LOW": "#22c55e", "MEDIUM": "#f59e0b", "HIGH": "#ef4444", "CRITICAL": "#7f1d1d"}.get(risk_level, "#94a3b8")
+    score_html = f"""
+<div style="margin:12px 0">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+    <span style="color:#94a3b8;font-size:13px">Overall Risk Score</span>
+    <span style="color:{bar_color};font-weight:700">{risk_score}/100</span>
+  </div>
+  <div style="background:#1e293b;border-radius:8px;height:18px;overflow:hidden">
+    <div style="width:{risk_score}%;background:{bar_color};height:100%;border-radius:8px;transition:width 0.4s ease"></div>
+  </div>
+</div>"""
 
-    return table_md, eval_md, dup_status, json.dumps(cases, indent=2)
+    # Formal report markdown
+    red_flags = report.get("red_flags", [])
+    actions = report.get("recommended_actions", [])
+    flags_md = "\n".join(f"- {f}" for f in red_flags) if red_flags else "- None identified"
+    actions_md = "\n".join(f"- {a}" for a in actions) if actions else "- No actions required"
 
+    report_md = f"""## Customer Risk Profile
+{report.get("customer_profile", "")}
 
-def export_test_cases():
-    if not _test_case_store:
-        return None
-    path = "/tmp/test_cases.json"
-    with open(path, "w") as f:
-        json.dump(_test_case_store, f, indent=2)
-    return path
+## Transaction Pattern Analysis
+{report.get("transaction_analysis", "")}
+
+## Red Flags Identified
+{flags_md}
+
+## Regulatory Considerations
+{report.get("regulatory_considerations", "")}
+
+## Recommended Actions
+{actions_md}
+
+## Compliance Officer Notes
+{report.get("compliance_notes", "")}"""
+
+    # Eval scores
+    hal_color = {"LOW": "#22c55e", "MEDIUM": "#f59e0b", "HIGH": "#ef4444"}.get(hal_risk, "#94a3b8")
+    eval_html = (
+        f'<div style="font-size:13px;line-height:1.8">'
+        f'<b>Faithfulness:</b> {faithfulness:.0%}<br>'
+        f'<b>Hallucination Risk:</b> <span style="color:{hal_color};font-weight:700">{hal_risk}</span>'
+        f'</div>'
+    )
+
+    return badge_html + score_html, report_md, eval_html, ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -403,6 +457,21 @@ def get_dashboard():
 # ═══════════════════════════════════════════════════════════════════════════
 # GRADIO UI
 # ═══════════════════════════════════════════════════════════════════════════
+
+DARK_CSS = """
+body, .gradio-container { background:#0a0f1e !important; color:#e2e8f0 !important; }
+.block { background:#0f172a !important; border:1px solid #1e293b !important; border-radius:10px !important; }
+textarea, input[type=text] { background:#1e293b !important; color:#e2e8f0 !important; border:1px solid #334155 !important; border-radius:8px !important; }
+textarea:focus, input[type=text]:focus { border-color:#3b82f6 !important; outline:none !important; box-shadow:0 0 0 2px rgba(59,130,246,0.3) !important; }
+button.primary { background:linear-gradient(135deg,#1d4ed8,#7c3aed) !important; color:#fff !important; border:none !important; border-radius:8px !important; font-weight:600 !important; }
+button.secondary { background:#1e293b !important; color:#94a3b8 !important; border:1px solid #334155 !important; border-radius:8px !important; }
+.label { color:#94a3b8 !important; font-size:13px !important; }
+.markdown-body, .prose { color:#e2e8f0 !important; }
+table { border-collapse:collapse; width:100%; }
+th { background:#1e3a5f; color:#93c5fd; padding:8px 12px; text-align:left; font-size:13px; }
+td { padding:8px 12px; border-bottom:1px solid #1e293b; font-size:13px; color:#cbd5e1; }
+tr:hover td { background:#0f1f35; }
+"""
 
 with gr.Blocks(title="Fintech AI Agent") as demo:
 
@@ -481,50 +550,59 @@ with gr.Blocks(title="Fintech AI Agent") as demo:
             api_name="compliance_qa",
         )
 
-    # ── SECTION 3: TEST CASE GENERATOR ───────────────────────────────────
-    with gr.Accordion("🧪 Test Case Generator", open=False):
+    # ── SECTION 3: RISK REPORT GENERATOR ─────────────────────────────────
+    with gr.Accordion("📋 Risk Report Generator", open=False):
         gr.Markdown(
-            "**Generate QA test cases for banking app features.** "
-            "Covers happy path, edge cases, error handling, security, and performance. "
-            "Includes duplicate detection via Pinecone."
+            "**Generate formal AML risk assessment reports for customer profiles.** "
+            "Used by compliance officers for documentation and audit trails."
         )
         with gr.Row():
             with gr.Column(scale=1):
-                tc_input = gr.Textbox(
-                    label="Feature Description",
-                    placeholder='e.g. "Login feature with 2FA authentication"',
-                    lines=3,
+                rr_name = gr.Textbox(
+                    label="Customer Name",
+                    placeholder="e.g. John Smith",
                 )
-                tc_btn = gr.Button("Generate Test Cases", variant="primary")
+                rr_account_type = gr.Dropdown(
+                    label="Account Type",
+                    choices=["Personal", "Business", "Corporate", "PEP"],
+                    value="Personal",
+                )
+                rr_transactions = gr.Textbox(
+                    label="Transaction History",
+                    placeholder="Paste recent transactions, one per line\ne.g.\n$9,800 cash deposit\n$9,700 wire to Mexico",
+                    lines=5,
+                )
+                rr_country = gr.Textbox(
+                    label="Country of Origin",
+                    placeholder="e.g. USA",
+                )
+                rr_income = gr.Dropdown(
+                    label="Monthly Income Range",
+                    choices=["<$5K", "$5K-$25K", "$25K-$100K", "$100K+"],
+                    value="$5K-$25K",
+                )
+                rr_btn = gr.Button("Generate Risk Report", variant="primary")
                 gr.Examples(
+                    label="Example Profiles",
                     examples=[
-                        ["Login feature with 2FA authentication"],
-                        ["International wire transfer with FX conversion"],
-                        ["Credit card spend limit enforcement"],
-                        ["Password reset via email verification"],
+                        ["John Smith",       "Personal",  "$9,800 cash deposit\n$9,700 wire to Mexico\n$9,500 cash withdrawal", "USA",            "$5K-$25K"],
+                        ["Acme Trading LLC", "Business",  "$500K wire from offshore\n$450K split to 10 accounts\n$480K crypto purchase", "Cayman Islands", "$100K+"],
                     ],
-                    inputs=tc_input,
+                    inputs=[rr_name, rr_account_type, rr_transactions, rr_country, rr_income],
                 )
             with gr.Column(scale=1):
-                tc_dup = gr.Textbox(label="Duplicate Check (Pinecone)", interactive=False)
-                tc_eval = gr.Markdown(label="Eval Scores")
-                tc_export_btn = gr.Button("Export as JSON", variant="secondary")
-                tc_file = gr.File(label="Download JSON", visible=False)
+                rr_badge = gr.HTML(label="Risk Level")
+                rr_eval  = gr.HTML(label="Eval Scores")
 
-        tc_table = gr.Markdown(label="Generated Test Cases")
-        tc_json_store = gr.State("")
+        rr_report = gr.Markdown(label="Formal Risk Assessment Report")
+        rr_dummy  = gr.State("")
 
-        tc_btn.click(
-            fn=generate_test_cases,
-            inputs=tc_input,
-            outputs=[tc_table, tc_eval, tc_dup, tc_json_store],
-            api_name="generate_tests",
+        rr_btn.click(
+            fn=generate_risk_report,
+            inputs=[rr_name, rr_account_type, rr_transactions, rr_country, rr_income],
+            outputs=[rr_badge, rr_report, rr_eval, rr_dummy],
+            api_name="risk_report",
         )
-        tc_export_btn.click(
-            fn=export_test_cases,
-            inputs=[],
-            outputs=tc_file,
-        ).then(lambda: gr.update(visible=True), outputs=tc_file)
 
     # ── SECTION 4: EVAL DASHBOARD ─────────────────────────────────────────
     with gr.Accordion("📊 Eval Dashboard", open=False):
@@ -543,4 +621,6 @@ if __name__ == "__main__":
         server_port=int(os.environ.get("PORT", 7860)),
         share=False,
         ssr_mode=False,
+        theme=gr.themes.Soft(primary_hue="blue", secondary_hue="violet", neutral_hue="slate"),
+        css=DARK_CSS,
     )
