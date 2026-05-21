@@ -27,7 +27,7 @@ except Exception:
     PINECONE_ENABLED = False
 
 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-sonnet-4-5"
 MAX_TOKENS = 1024
 
 SYSTEM_PROMPT = (
@@ -422,15 +422,7 @@ td { padding:8px 12px; border-bottom:1px solid #1e293b; font-size:13px; color:#c
 tr:hover td { background:#0f1f35; }
 """
 
-with gr.Blocks(
-    theme=gr.themes.Soft(
-        primary_hue="blue",
-        secondary_hue="violet",
-        neutral_hue="slate",
-    ),
-    css=DARK_CSS,
-    title="Fintech AI Agent",
-) as demo:
+with gr.Blocks(title="Fintech AI Agent") as demo:
 
     gr.HTML("""
     <div style="text-align:center;padding:24px 0 8px">
@@ -580,4 +572,10 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=int(os.environ.get("PORT", 7860)),
         share=False,
+        theme=gr.themes.Soft(
+            primary_hue="blue",
+            secondary_hue="violet",
+            neutral_hue="slate",
+        ),
+        css=DARK_CSS,
     )
