@@ -271,10 +271,11 @@ def _check_pinecone_duplicate(description: str) -> str:
     if not PINECONE_ENABLED:
         return "Pinecone not configured — duplicate check skipped."
     try:
-        index_name = os.environ.get("PINECONE_INDEX", "fintech-testcases")
+        index_name = os.environ.get("PINECONE_INDEX", "ai-qe-agent")
+        namespace = os.environ.get("PINECONE_NAMESPACE", "fintech-testcases")
         index = _pc.Index(index_name)
         vec = _embed_model.encode(description).tolist()
-        results = index.query(vector=vec, top_k=1, include_metadata=True)
+        results = index.query(vector=vec, top_k=1, include_metadata=True, namespace=namespace)
         if results.matches and results.matches[0].score > 0.92:
             meta = results.matches[0].metadata or {}
             return f"Similar test case exists (score {results.matches[0].score:.2f}): {meta.get('description', 'N/A')}"
