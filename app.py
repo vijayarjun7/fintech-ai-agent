@@ -404,36 +404,9 @@ def get_dashboard():
 # GRADIO UI
 # ═══════════════════════════════════════════════════════════════════════════
 
-DARK_CSS = """
-body, .gradio-container { background:#0a0f1e !important; color:#e2e8f0 !important; }
-.tab-nav button { background:#0f172a !important; color:#94a3b8 !important; border:1px solid #1e293b !important; }
-.tab-nav button.selected { background:#1e3a5f !important; color:#60a5fa !important; border-color:#3b82f6 !important; }
-.block { background:#0f172a !important; border:1px solid #1e293b !important; border-radius:10px !important; }
-textarea, input[type=text] { background:#1e293b !important; color:#e2e8f0 !important; border:1px solid #334155 !important; border-radius:8px !important; }
-textarea:focus, input[type=text]:focus { border-color:#3b82f6 !important; outline:none !important; box-shadow:0 0 0 2px rgba(59,130,246,0.3) !important; }
-button.primary { background:linear-gradient(135deg,#1d4ed8,#7c3aed) !important; color:#fff !important; border:none !important; border-radius:8px !important; font-weight:600 !important; }
-button.secondary { background:#1e293b !important; color:#94a3b8 !important; border:1px solid #334155 !important; border-radius:8px !important; }
-.label { color:#94a3b8 !important; font-size:13px !important; }
-.markdown-body { color:#e2e8f0 !important; }
-table { border-collapse:collapse; width:100%; }
-th { background:#1e3a5f; color:#93c5fd; padding:8px 12px; text-align:left; font-size:13px; }
-td { padding:8px 12px; border-bottom:1px solid #1e293b; font-size:13px; color:#cbd5e1; }
-tr:hover td { background:#0f1f35; }
-"""
-
 with gr.Blocks(title="Fintech AI Agent") as demo:
 
-    gr.HTML("""
-    <div style="text-align:center;padding:24px 0 8px">
-      <h1 style="font-size:28px;font-weight:800;background:linear-gradient(90deg,#60a5fa,#a78bfa);
-                 -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0">
-        Fintech AI Agent
-      </h1>
-      <p style="color:#64748b;font-size:14px;margin-top:6px">
-        Powered by Claude · Pinecone · LangSmith
-      </p>
-    </div>
-    """)
+    gr.Markdown("# Fintech AI Agent\nPowered by Claude · Pinecone · LangSmith")
 
     with gr.Tabs():
         # ── TAB 1: FRAUD DETECTOR ─────────────────────────────────────────
@@ -571,10 +544,4 @@ if __name__ == "__main__":
         server_port=int(os.environ.get("PORT", 7860)),
         share=False,
         ssr_mode=False,
-        theme=gr.themes.Soft(
-            primary_hue="blue",
-            secondary_hue="violet",
-            neutral_hue="slate",
-        ),
-        css=DARK_CSS,
     )
