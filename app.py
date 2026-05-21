@@ -435,133 +435,134 @@ with gr.Blocks(title="Fintech AI Agent") as demo:
     </div>
     """)
 
-    # ── TAB 1: FRAUD DETECTOR ─────────────────────────────────────────────
-    with gr.Tab("🛡️ Fraud Detector"):
-        gr.Markdown(
-            "**Analyze financial transactions for fraud patterns.** "
-            "Receive a risk score, red flags, and a clear approve/review/reject recommendation."
-        )
-        with gr.Row():
-            with gr.Column(scale=1):
-                fraud_input = gr.Textbox(
-                    label="Transaction Description",
-                    placeholder='e.g. "Transfer $9,800 to overseas account at 3am"',
-                    lines=4,
-                    max_lines=8,
-                )
-                fraud_btn = gr.Button("Analyze Transaction", variant="primary")
-                gr.Examples(
-                    examples=[
-                        ["Transfer $9,800 to overseas account at 3am"],
-                        ["$50 grocery purchase at local supermarket"],
-                        ["Wire transfer of $9,500 to 5 different accounts within 1 hour"],
-                        ["Monthly Netflix subscription charge $15.99"],
-                    ],
-                    inputs=fraud_input,
-                )
-            with gr.Column(scale=1):
-                fraud_risk_bar = gr.HTML(label="Risk Score")
-                fraud_flags = gr.Markdown(label="Red Flags")
-                fraud_rec = gr.HTML(label="Recommendation")
-                fraud_eval = gr.Markdown(label="Eval Scores")
+    with gr.Tabs():
+        # ── TAB 1: FRAUD DETECTOR ─────────────────────────────────────────
+        with gr.Tab("🛡️ Fraud Detector"):
+            gr.Markdown(
+                "**Analyze financial transactions for fraud patterns.** "
+                "Receive a risk score, red flags, and a clear approve/review/reject recommendation."
+            )
+            with gr.Row():
+                with gr.Column(scale=1):
+                    fraud_input = gr.Textbox(
+                        label="Transaction Description",
+                        placeholder='e.g. "Transfer $9,800 to overseas account at 3am"',
+                        lines=4,
+                        max_lines=8,
+                    )
+                    fraud_btn = gr.Button("Analyze Transaction", variant="primary")
+                    gr.Examples(
+                        examples=[
+                            ["Transfer $9,800 to overseas account at 3am"],
+                            ["$50 grocery purchase at local supermarket"],
+                            ["Wire transfer of $9,500 to 5 different accounts within 1 hour"],
+                            ["Monthly Netflix subscription charge $15.99"],
+                        ],
+                        inputs=fraud_input,
+                    )
+                with gr.Column(scale=1):
+                    fraud_risk_bar = gr.HTML(label="Risk Score")
+                    fraud_flags = gr.Markdown(label="Red Flags")
+                    fraud_rec = gr.HTML(label="Recommendation")
+                    fraud_eval = gr.Markdown(label="Eval Scores")
 
-        fraud_btn.click(
-            fn=analyze_fraud,
-            inputs=fraud_input,
-            outputs=[fraud_risk_bar, fraud_flags, fraud_rec, fraud_eval],
-            api_name="fraud_detect",
-        )
+            fraud_btn.click(
+                fn=analyze_fraud,
+                inputs=fraud_input,
+                outputs=[fraud_risk_bar, fraud_flags, fraud_rec, fraud_eval],
+                api_name="fraud_detect",
+            )
 
-    # ── TAB 2: COMPLIANCE Q&A ─────────────────────────────────────────────
-    with gr.Tab("⚖️ Compliance Q&A"):
-        gr.Markdown(
-            "**RAG-powered compliance assistant** covering KYC, AML, GDPR, SOX, and PCI-DSS. "
-            "Each answer cites the source regulation and flags hallucination risk."
-        )
-        with gr.Row():
-            with gr.Column(scale=1):
-                compliance_input = gr.Textbox(
-                    label="Compliance Question",
-                    placeholder='e.g. "What are KYC requirements for new customers?"',
-                    lines=3,
-                )
-                compliance_btn = gr.Button("Get Answer", variant="primary")
-                gr.Examples(
-                    examples=[
-                        ["What are KYC requirements for new customers?"],
-                        ["When must we file a Suspicious Activity Report?"],
-                        ["What does GDPR say about data breach notification?"],
-                        ["What are SOX Section 404 requirements?"],
-                        ["What encryption standard does PCI-DSS require?"],
-                    ],
-                    inputs=compliance_input,
-                )
-            with gr.Column(scale=1):
-                compliance_answer = gr.Markdown(label="Answer")
-                compliance_conf = gr.HTML(label="Confidence")
-                compliance_hal = gr.HTML(label="Hallucination Risk")
+        # ── TAB 2: COMPLIANCE Q&A ─────────────────────────────────────────
+        with gr.Tab("⚖️ Compliance Q&A"):
+            gr.Markdown(
+                "**RAG-powered compliance assistant** covering KYC, AML, GDPR, SOX, and PCI-DSS. "
+                "Each answer cites the source regulation and flags hallucination risk."
+            )
+            with gr.Row():
+                with gr.Column(scale=1):
+                    compliance_input = gr.Textbox(
+                        label="Compliance Question",
+                        placeholder='e.g. "What are KYC requirements for new customers?"',
+                        lines=3,
+                    )
+                    compliance_btn = gr.Button("Get Answer", variant="primary")
+                    gr.Examples(
+                        examples=[
+                            ["What are KYC requirements for new customers?"],
+                            ["When must we file a Suspicious Activity Report?"],
+                            ["What does GDPR say about data breach notification?"],
+                            ["What are SOX Section 404 requirements?"],
+                            ["What encryption standard does PCI-DSS require?"],
+                        ],
+                        inputs=compliance_input,
+                    )
+                with gr.Column(scale=1):
+                    compliance_answer = gr.Markdown(label="Answer")
+                    compliance_conf = gr.HTML(label="Confidence")
+                    compliance_hal = gr.HTML(label="Hallucination Risk")
 
-        compliance_btn.click(
-            fn=answer_compliance,
-            inputs=compliance_input,
-            outputs=[compliance_answer, compliance_conf, compliance_hal],
-            api_name="compliance_qa",
-        )
+            compliance_btn.click(
+                fn=answer_compliance,
+                inputs=compliance_input,
+                outputs=[compliance_answer, compliance_conf, compliance_hal],
+                api_name="compliance_qa",
+            )
 
-    # ── TAB 3: TEST CASE GENERATOR ────────────────────────────────────────
-    with gr.Tab("🧪 Test Case Generator"):
-        gr.Markdown(
-            "**Generate QA test cases for banking app features.** "
-            "Covers happy path, edge cases, error handling, security, and performance. "
-            "Includes duplicate detection via Pinecone."
-        )
-        with gr.Row():
-            with gr.Column(scale=1):
-                tc_input = gr.Textbox(
-                    label="Feature Description",
-                    placeholder='e.g. "Login feature with 2FA authentication"',
-                    lines=3,
-                )
-                tc_btn = gr.Button("Generate Test Cases", variant="primary")
-                gr.Examples(
-                    examples=[
-                        ["Login feature with 2FA authentication"],
-                        ["International wire transfer with FX conversion"],
-                        ["Credit card spend limit enforcement"],
-                        ["Password reset via email verification"],
-                    ],
-                    inputs=tc_input,
-                )
-            with gr.Column(scale=1):
-                tc_dup = gr.Textbox(label="Duplicate Check (Pinecone)", interactive=False)
-                tc_eval = gr.Markdown(label="Eval Scores")
-                tc_export_btn = gr.Button("Export as JSON", variant="secondary")
-                tc_file = gr.File(label="Download JSON", visible=False)
+        # ── TAB 3: TEST CASE GENERATOR ────────────────────────────────────
+        with gr.Tab("🧪 Test Case Generator"):
+            gr.Markdown(
+                "**Generate QA test cases for banking app features.** "
+                "Covers happy path, edge cases, error handling, security, and performance. "
+                "Includes duplicate detection via Pinecone."
+            )
+            with gr.Row():
+                with gr.Column(scale=1):
+                    tc_input = gr.Textbox(
+                        label="Feature Description",
+                        placeholder='e.g. "Login feature with 2FA authentication"',
+                        lines=3,
+                    )
+                    tc_btn = gr.Button("Generate Test Cases", variant="primary")
+                    gr.Examples(
+                        examples=[
+                            ["Login feature with 2FA authentication"],
+                            ["International wire transfer with FX conversion"],
+                            ["Credit card spend limit enforcement"],
+                            ["Password reset via email verification"],
+                        ],
+                        inputs=tc_input,
+                    )
+                with gr.Column(scale=1):
+                    tc_dup = gr.Textbox(label="Duplicate Check (Pinecone)", interactive=False)
+                    tc_eval = gr.Markdown(label="Eval Scores")
+                    tc_export_btn = gr.Button("Export as JSON", variant="secondary")
+                    tc_file = gr.File(label="Download JSON", visible=False)
 
-        tc_table = gr.Markdown(label="Generated Test Cases")
-        tc_json_store = gr.State("")
+            tc_table = gr.Markdown(label="Generated Test Cases")
+            tc_json_store = gr.State("")
 
-        tc_btn.click(
-            fn=generate_test_cases,
-            inputs=tc_input,
-            outputs=[tc_table, tc_eval, tc_dup, tc_json_store],
-            api_name="generate_tests",
-        )
-        tc_export_btn.click(
-            fn=export_test_cases,
-            inputs=[],
-            outputs=tc_file,
-        ).then(lambda: gr.update(visible=True), outputs=tc_file)
+            tc_btn.click(
+                fn=generate_test_cases,
+                inputs=tc_input,
+                outputs=[tc_table, tc_eval, tc_dup, tc_json_store],
+                api_name="generate_tests",
+            )
+            tc_export_btn.click(
+                fn=export_test_cases,
+                inputs=[],
+                outputs=tc_file,
+            ).then(lambda: gr.update(visible=True), outputs=tc_file)
 
-    # ── TAB 4: EVAL DASHBOARD ─────────────────────────────────────────────
-    with gr.Tab("📊 Eval Dashboard"):
-        gr.Markdown(
-            "**Real-time evaluation metrics** aggregated across all tabs. "
-            "Refresh to see the latest counts after running queries."
-        )
-        dashboard_html = gr.HTML(value=get_dashboard)
-        refresh_btn = gr.Button("↻ Refresh Metrics", variant="secondary")
-        refresh_btn.click(fn=get_dashboard, inputs=[], outputs=dashboard_html)
+        # ── TAB 4: EVAL DASHBOARD ─────────────────────────────────────────
+        with gr.Tab("📊 Eval Dashboard"):
+            gr.Markdown(
+                "**Real-time evaluation metrics** aggregated across all tabs. "
+                "Refresh to see the latest counts after running queries."
+            )
+            dashboard_html = gr.HTML(value=get_dashboard)
+            refresh_btn = gr.Button("↻ Refresh Metrics", variant="secondary")
+            refresh_btn.click(fn=get_dashboard, inputs=[], outputs=dashboard_html)
 
 
 if __name__ == "__main__":
