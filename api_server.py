@@ -1,9 +1,7 @@
-import os
 import re
 import json
 import time
 import logging
-from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,7 +40,7 @@ metrics = {
 }
 
 # ── Claude client ──────────────────────────────────────────────────────────
-client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+client = Anthropic()  # reads ANTHROPIC_API_KEY from environment automatically
 MODEL = "claude-sonnet-4-20250514"
 MAX_TOKENS = 1024
 
