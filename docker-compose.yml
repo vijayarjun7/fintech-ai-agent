@@ -1,0 +1,31 @@
+services:
+
+  # ── FastAPI REST API ──────────────────────────────────────────────────────
+  api:
+    build: .
+    container_name: fintech-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    command: ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ── Gradio UI ─────────────────────────────────────────────────────────────
+  ui:
+    build: .
+    container_name: fintech-ui
+    ports:
+      - "7860:7860"
+    env_file:
+      - .env
+    command: ["python", "app.py"]
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
