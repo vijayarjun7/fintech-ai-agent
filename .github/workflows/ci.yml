@@ -147,11 +147,11 @@ jobs:
           python-version: "3.11"
 
       - name: Install security tools
-        run: pip install bandit safety
+        run: pip install bandit pip-audit
 
       - name: bandit — static security analysis
         run: bandit -r . --exclude .venv,mlruns -ll
 
-      - name: safety — dependency vulnerability check
-        run: safety check -r requirements.txt
+      - name: pip-audit — dependency vulnerability check
+        run: pip-audit -r requirements.txt --skip-editable
         continue-on-error: true
