@@ -1,0 +1,157 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# ── Job 1: Code Quality ────────────────────────────────────────────────────
+jobs:
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linting tools
+        run: pip install flake8 black isort
+
+      - name: flake8 — lint
+        run: flake8 . --extend-ignore=E501 --exclude=.venv,mlruns
+
+      - name: black — format check
+        run: black --check . --exclude '\.venv|mlruns'
+
+      - name: isort — import order check
+        run: isort --check-only . --skip .venv --skip mlruns
+
+  # ── Job 2: API Tests ───────────────────────────────────────────────────────
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+    needs: code-quality
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install test dependencies
+        run: pip install pytest httpx
+
+      - name: Create dummy .env
+        run: |
+          echo "ANTHROPIC_API_KEY=test_key" >> $GITHUB_ENV
+          echo "PINECONE_API_KEY=test_key" >> $GITHUB_ENV
+
+      - name: Run API tests
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'test_key' }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY || 'test_key' }}
+        run: pytest tests/test_api.py -v
+
+  # ── Job 3: MLflow Tests ────────────────────────────────────────────────────
+  test-mlflow:
+    name: Test MLflow Tracking
+    runs-on: ubuntu-latest
+    needs: code-quality
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install MLflow dependencies
+        run: pip install mlflow pandas numpy
+
+      - name: Run MLflow tracker
+        run: python mlflow_tracker.py
+
+      - name: Verify MLflow experiment created
+        run: |
+          python - <<'EOF'
+          import mlflow
+          client = mlflow.tracking.MlflowClient()
+          exp = client.get_experiment_by_name("fintech-ai-agent-eval")
+          assert exp is not None, "Experiment not found"
+          runs = client.search_runs(exp.experiment_id)
+          assert len(runs) == 3, f"Expected 3 runs, got {len(runs)}"
+          print(f"✓ Experiment '{exp.name}' — {len(runs)} runs verified")
+          EOF
+
+  # ── Job 4: Docker Build ────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [test-api, test-mlflow]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build -t fintech-ai-agent:latest .
+
+      - name: Verify image exists
+        run: docker image inspect fintech-ai-agent:latest --format '{{.Id}}'
+
+      - name: Run container health check
+        run: |
+          docker run -d --name test-api \
+            -p 8000:8000 \
+            -e ANTHROPIC_API_KEY=test_key \
+            -e PINECONE_API_KEY=test_key \
+            fintech-ai-agent:latest
+          sleep 5
+          curl -f http://localhost:8000/api/health || (docker logs test-api && exit 1)
+          docker stop test-api
+
+  # ── Job 5: Security Scan ──────────────────────────────────────────────────
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: code-quality
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install security tools
+        run: pip install bandit safety
+
+      - name: bandit — static security analysis
+        run: bandit -r . --exclude .venv,mlruns -ll
+
+      - name: safety — dependency vulnerability check
+        run: safety check -r requirements.txt
+        continue-on-error: true

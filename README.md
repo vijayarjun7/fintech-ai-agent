@@ -4,6 +4,7 @@
 > and AML risk reports — with hallucination eval layer.
 > Powered by Claude + Pinecone + LangSmith
 
+![CI](https://github.com/vijayarjun7/fintech-ai-agent/actions/workflows/ci.yml/badge.svg)
 ![Claude](https://img.shields.io/badge/Claude-Sonnet%204-orange?logo=anthropic)
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-REST%20API-green?logo=fastapi)
