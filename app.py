@@ -666,7 +666,7 @@ with gr.Blocks(title="Fintech AI Agent") as demo:
 
 if __name__ == "__main__":
     demo.launch(
-        server_name="0.0.0.0",
+        server_name="0.0.0.0",  # nosec B104 — intentional for container deployment
         server_port=int(os.environ.get("PORT", 7860)),
         share=False,
         ssr_mode=False,

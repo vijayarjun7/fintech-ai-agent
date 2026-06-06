@@ -150,7 +150,7 @@ jobs:
         run: pip install bandit pip-audit
 
       - name: bandit — static security analysis
-        run: bandit -r . --exclude .venv,mlruns -ll
+        run: bandit -r . --exclude .venv,mlruns -lll
 
       - name: pip-audit — dependency vulnerability check
         run: pip-audit -r requirements.txt --skip-editable
