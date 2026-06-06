@@ -25,13 +25,33 @@ https://huggingface.co/spaces/Vijayarv07/fintech-ai-agent
 
 ## Key Results
 
+**Live demo run — 3 queries across all sections:**
+
+| Section | Input | Result |
+|---|---|---|
+| 🛡️ Fraud Detector | `$9,800 to Cayman Islands at 3:47am` | 9/10 HIGH RISK → **REJECT** |
+| ⚖️ Compliance Q&A | `When must we file a SAR under BSA?` | Answer cited BSA + FATF, 95% confidence |
+| 📋 Risk Report | Sarah Johnson, Personal, USA | 15/100 LOW — 6-section formal report |
+
+**Eval scores:**
+
 | Metric | Value |
 |---|---|
 | Avg quality score | 98% |
 | Hallucinations flagged | 0 |
-| Faithfulness (Fraud) | 95–100% |
-| Faithfulness (Risk Report) | 92% |
+| Faithfulness — Fraud Detector | 95–100% |
+| Faithfulness — Risk Report | 92% |
 | Hallucination risk | LOW across all runs |
+| Confidence — Compliance Q&A | 95–96% |
+
+**MLflow tracked runs:**
+
+| Run | Confidence | Risk Score | Response Time |
+|---|---|---|---|
+| FraudDetector | 85% | 9/10 | 1200 ms |
+| ComplianceQA | 92% | — | 980 ms |
+| RiskReportGenerator | — | 78/100 | 2100 ms |
+| **Avg** | | | **1427 ms** |
 
 ## Stack
 
