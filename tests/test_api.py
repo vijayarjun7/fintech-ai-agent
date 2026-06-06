@@ -1,5 +1,5 @@
 import os
-import pytest
+
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("ANTHROPIC_API_KEY", "test_key")
@@ -13,6 +13,7 @@ client = TestClient(app)
 def test_import():
     """api_server imports without errors."""
     from api_server import app as _app  # noqa: F401
+
     assert _app is not None
 
 

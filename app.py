@@ -1,24 +1,29 @@
-import os
 import json
+import os
 import re
+
 import gradio as gr
 from anthropic import Anthropic
 
 # ── LangSmith tracing (optional, no-op if not configured) ──────────────────
 try:
     from langsmith import traceable
+
     LANGSMITH_ENABLED = bool(os.environ.get("LANGSMITH_API_KEY"))
 except ImportError:
+
     def traceable(func=None, **kwargs):
         if func is not None:
             return func
         return lambda f: f
+
     LANGSMITH_ENABLED = False
 
 # ── Pinecone (optional, graceful degradation) ──────────────────────────────
 try:
     from pinecone import Pinecone
     from sentence_transformers import SentenceTransformer
+
     _pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY", ""))
     _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
     PINECONE_ENABLED = True
@@ -53,7 +58,9 @@ def _call_claude(prompt: str) -> str:
     return response.content[0].text
 
 
-def _update_metrics(quality_score: float = None, hallucination: bool = False, risk_alert: bool = False):
+def _update_metrics(
+    quality_score: float = None, hallucination: bool = False, risk_alert: bool = False
+):
     metrics["total_queries"] += 1
     if quality_score is not None:
         metrics["quality_scores"].append(quality_score)
@@ -109,6 +116,7 @@ REGULATIONS = {
 # ═══════════════════════════════════════════════════════════════════════════
 # TAB 1 — FRAUD DETECTOR
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @traceable(name="fraud_detection")
 def analyze_fraud(transaction: str):
@@ -177,9 +185,15 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
   </div>
 </div>"""
 
-    flags_md = "\n".join(f"- {f}" for f in red_flags) if red_flags else "- No significant flags detected"
+    flags_md = (
+        "\n".join(f"- {f}" for f in red_flags)
+        if red_flags
+        else "- No significant flags detected"
+    )
 
-    rec_color = {"approve": "#22c55e", "review": "#f59e0b", "reject": "#ef4444"}.get(recommendation, "#94a3b8")
+    rec_color = {"approve": "#22c55e", "review": "#f59e0b", "reject": "#ef4444"}.get(
+        recommendation, "#94a3b8"
+    )
     rec_html = f'<span style="color:{rec_color};font-weight:700;font-size:16px;text-transform:uppercase">⬤ {recommendation}</span>'
 
     eval_md = (
@@ -203,6 +217,7 @@ def _empty_fraud_result(msg):
 # ═══════════════════════════════════════════════════════════════════════════
 # TAB 2 — COMPLIANCE Q&A
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @traceable(name="compliance_qa")
 def answer_compliance(question: str):
@@ -238,7 +253,9 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
     confidence = float(data.get("confidence", 0.7))
     hal_risk = data.get("hallucination_risk", "MEDIUM").upper()
 
-    hal_color = {"LOW": "#22c55e", "MEDIUM": "#f59e0b", "HIGH": "#ef4444"}.get(hal_risk, "#94a3b8")
+    hal_color = {"LOW": "#22c55e", "MEDIUM": "#f59e0b", "HIGH": "#ef4444"}.get(
+        hal_risk, "#94a3b8"
+    )
     hal_html = f'<span style="color:{hal_color};font-weight:700">⬤ {hal_risk} hallucination risk</span>'
 
     is_hallucination = hal_risk == "HIGH"
@@ -347,20 +364,25 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
 
     # Risk level badge
     badge_colors = {
-        "LOW":      ("#22c55e", "#052e16"),
-        "MEDIUM":   ("#f59e0b", "#1c1400"),
-        "HIGH":     ("#ef4444", "#1c0000"),
+        "LOW": ("#22c55e", "#052e16"),
+        "MEDIUM": ("#f59e0b", "#1c1400"),
+        "HIGH": ("#ef4444", "#1c0000"),
         "CRITICAL": ("#7f1d1d", "#1c0000"),
     }
     fg, bg = badge_colors.get(risk_level, ("#94a3b8", "#0f172a"))
     badge_html = (
         f'<div style="display:inline-block;background:{bg};border:2px solid {fg};'
         f'border-radius:8px;padding:10px 24px;font-size:22px;font-weight:800;color:{fg}">'
-        f'{risk_level}</div>'
+        f"{risk_level}</div>"
     )
 
     # Progress bar (0-100)
-    bar_color = {"LOW": "#22c55e", "MEDIUM": "#f59e0b", "HIGH": "#ef4444", "CRITICAL": "#7f1d1d"}.get(risk_level, "#94a3b8")
+    bar_color = {
+        "LOW": "#22c55e",
+        "MEDIUM": "#f59e0b",
+        "HIGH": "#ef4444",
+        "CRITICAL": "#7f1d1d",
+    }.get(risk_level, "#94a3b8")
     score_html = f"""
 <div style="margin:12px 0">
   <div style="display:flex;justify-content:space-between;margin-bottom:6px">
@@ -375,8 +397,12 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
     # Formal report markdown
     red_flags = report.get("red_flags", [])
     actions = report.get("recommended_actions", [])
-    flags_md = "\n".join(f"- {f}" for f in red_flags) if red_flags else "- None identified"
-    actions_md = "\n".join(f"- {a}" for a in actions) if actions else "- No actions required"
+    flags_md = (
+        "\n".join(f"- {f}" for f in red_flags) if red_flags else "- None identified"
+    )
+    actions_md = (
+        "\n".join(f"- {a}" for a in actions) if actions else "- No actions required"
+    )
 
     report_md = f"""## Customer Risk Profile
 {report.get("customer_profile", "")}
@@ -397,12 +423,14 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
 {report.get("compliance_notes", "")}"""
 
     # Eval scores
-    hal_color = {"LOW": "#22c55e", "MEDIUM": "#f59e0b", "HIGH": "#ef4444"}.get(hal_risk, "#94a3b8")
+    hal_color = {"LOW": "#22c55e", "MEDIUM": "#f59e0b", "HIGH": "#ef4444"}.get(
+        hal_risk, "#94a3b8"
+    )
     eval_html = (
         f'<div style="font-size:13px;line-height:1.8">'
-        f'<b>Faithfulness:</b> {faithfulness:.0%}<br>'
+        f"<b>Faithfulness:</b> {faithfulness:.0%}<br>"
         f'<b>Hallucination Risk:</b> <span style="color:{hal_color};font-weight:700">{hal_risk}</span>'
-        f'</div>'
+        f"</div>"
     )
 
     return badge_html + score_html, report_md, eval_html, ""
@@ -411,6 +439,7 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
 # ═══════════════════════════════════════════════════════════════════════════
 # TAB 4 — EVAL DASHBOARD
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def get_dashboard():
     total = metrics["total_queries"]
@@ -496,7 +525,9 @@ with gr.Blocks(title="Fintech AI Agent") as demo:
                     examples=[
                         ["Transfer $9,800 to overseas account at 3am"],
                         ["$50 grocery purchase at local supermarket"],
-                        ["Wire transfer of $9,500 to 5 different accounts within 1 hour"],
+                        [
+                            "Wire transfer of $9,500 to 5 different accounts within 1 hour"
+                        ],
                         ["Monthly Netflix subscription charge $15.99"],
                     ],
                     inputs=fraud_input,
@@ -585,17 +616,35 @@ with gr.Blocks(title="Fintech AI Agent") as demo:
                 gr.Examples(
                     label="Example Profiles",
                     examples=[
-                        ["John Smith",       "Personal",  "$9,800 cash deposit\n$9,700 wire to Mexico\n$9,500 cash withdrawal", "USA",            "$5K-$25K"],
-                        ["Acme Trading LLC", "Business",  "$500K wire from offshore\n$450K split to 10 accounts\n$480K crypto purchase", "Cayman Islands", "$100K+"],
+                        [
+                            "John Smith",
+                            "Personal",
+                            "$9,800 cash deposit\n$9,700 wire to Mexico\n$9,500 cash withdrawal",
+                            "USA",
+                            "$5K-$25K",
+                        ],
+                        [
+                            "Acme Trading LLC",
+                            "Business",
+                            "$500K wire from offshore\n$450K split to 10 accounts\n$480K crypto purchase",
+                            "Cayman Islands",
+                            "$100K+",
+                        ],
                     ],
-                    inputs=[rr_name, rr_account_type, rr_transactions, rr_country, rr_income],
+                    inputs=[
+                        rr_name,
+                        rr_account_type,
+                        rr_transactions,
+                        rr_country,
+                        rr_income,
+                    ],
                 )
             with gr.Column(scale=1):
                 rr_badge = gr.HTML(label="Risk Level")
-                rr_eval  = gr.HTML(label="Eval Scores")
+                rr_eval = gr.HTML(label="Eval Scores")
 
         rr_report = gr.Markdown(label="Formal Risk Assessment Report")
-        rr_dummy  = gr.State("")
+        rr_dummy = gr.State("")
 
         rr_btn.click(
             fn=generate_risk_report,
@@ -621,6 +670,8 @@ if __name__ == "__main__":
         server_port=int(os.environ.get("PORT", 7860)),
         share=False,
         ssr_mode=False,
-        theme=gr.themes.Soft(primary_hue="blue", secondary_hue="violet", neutral_hue="slate"),
+        theme=gr.themes.Soft(
+            primary_hue="blue", secondary_hue="violet", neutral_hue="slate"
+        ),
         css=DARK_CSS,
     )

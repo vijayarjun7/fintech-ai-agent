@@ -1,12 +1,12 @@
-import re
 import json
-import time
 import logging
+import re
+import time
 
+from anthropic import Anthropic
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from anthropic import Anthropic
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -81,18 +81,28 @@ REGULATIONS = {
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+
 def _call_claude(prompt: str) -> dict:
-    raw = client.messages.create(
-        model=MODEL,
-        max_tokens=MAX_TOKENS,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
-    ).content[0].text
+    raw = (
+        client.messages.create(
+            model=MODEL,
+            max_tokens=MAX_TOKENS,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        .content[0]
+        .text
+    )
     cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("```").strip()
     return json.loads(cleaned)
 
 
-def _track(endpoint_counter: str, elapsed_ms: int, high_risk: bool = False, hallucination: bool = False):
+def _track(
+    endpoint_counter: str,
+    elapsed_ms: int,
+    high_risk: bool = False,
+    hallucination: bool = False,
+):
     metrics["total_requests"] += 1
     metrics[endpoint_counter] += 1
     metrics["response_times_ms"].append(elapsed_ms)
@@ -105,9 +115,11 @@ def _track(endpoint_counter: str, elapsed_ms: int, high_risk: bool = False, hall
 
 # ── Schemas ────────────────────────────────────────────────────────────────
 
+
 class FraudRequest(BaseModel):
     transaction: str
     threshold: int = 7
+
 
 class FraudResponse(BaseModel):
     risk_score: int
@@ -119,8 +131,10 @@ class FraudResponse(BaseModel):
     confidence: float
     processing_time_ms: int
 
+
 class ComplianceRequest(BaseModel):
     question: str
+
 
 class ComplianceResponse(BaseModel):
     answer: str
@@ -128,12 +142,14 @@ class ComplianceResponse(BaseModel):
     confidence: float
     hallucination_risk: str
 
+
 class RiskReportRequest(BaseModel):
     customer_name: str
     account_type: str
     transactions: str
     country: str
     income_range: str
+
 
 class RiskReportSection(BaseModel):
     customer_profile: str
@@ -143,6 +159,7 @@ class RiskReportSection(BaseModel):
     recommended_actions: list[str]
     compliance_notes: str
 
+
 class RiskReportResponse(BaseModel):
     risk_level: str
     risk_score: int
@@ -150,11 +167,13 @@ class RiskReportResponse(BaseModel):
     faithfulness_score: float
     hallucination_risk: str
 
+
 class HealthResponse(BaseModel):
     status: str
     model: str
     version: str
     uptime_seconds: int
+
 
 class MetricsResponse(BaseModel):
     total_requests: int
@@ -165,6 +184,7 @@ class MetricsResponse(BaseModel):
     hallucinations_caught: int
     avg_response_time_ms: float
 
+
 class RegulationsResponse(BaseModel):
     regulations: list[str]
     count: int
@@ -173,9 +193,11 @@ class RegulationsResponse(BaseModel):
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────
 
+
 @app.on_event("startup")
 async def on_startup():
     log.info("Fintech AI Agent API starting — model=%s", MODEL)
+
 
 @app.on_event("shutdown")
 async def on_shutdown():
@@ -183,6 +205,7 @@ async def on_shutdown():
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
+
 
 @app.post("/api/fraud/detect", response_model=FraudResponse)
 async def fraud_detect(req: FraudRequest):
@@ -298,7 +321,12 @@ Respond with ONLY valid JSON:
     level = data.get("risk_level", "MEDIUM").upper()
     hal = data.get("hallucination_risk", "MEDIUM").upper()
     elapsed = int((time.time() - t0) * 1000)
-    _track("risk_reports", elapsed, high_risk=level in ("HIGH", "CRITICAL"), hallucination=hal == "HIGH")
+    _track(
+        "risk_reports",
+        elapsed,
+        high_risk=level in ("HIGH", "CRITICAL"),
+        hallucination=hal == "HIGH",
+    )
 
     raw_report = data.get("report", {})
     return RiskReportResponse(

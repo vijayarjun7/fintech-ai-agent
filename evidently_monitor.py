@@ -1,11 +1,15 @@
 import os
+
 import numpy as np
 import pandas as pd
-
+from evidently.metric_preset import (
+    ClassificationPreset,
+    DataDriftPreset,
+    DataQualityPreset,
+)
 from evidently.report import Report
-from evidently.metric_preset import DataDriftPreset, DataQualityPreset, ClassificationPreset
-from evidently.test_suite import TestSuite
 from evidently.test_preset import DataDriftTestPreset
+from evidently.test_suite import TestSuite
 
 os.makedirs("reports", exist_ok=True)
 rng = np.random.default_rng(42)
@@ -14,59 +18,71 @@ rng = np.random.default_rng(42)
 # 80% legitimate (risk 0-4), 20% suspicious (risk 7-10)
 
 n = 50
-legit  = int(n * 0.8)   # 40 rows
-suspic = n - legit       # 10 rows
+legit = int(n * 0.8)  # 40 rows
+suspic = n - legit  # 10 rows
 
-ref_legit = pd.DataFrame({
-    "transaction_amount": rng.uniform(100, 8_000, legit),
-    "hour_of_day":        rng.integers(8, 20, legit),       # business hours
-    "is_overseas":        rng.choice([0, 1], legit, p=[0.8, 0.2]).astype(float),
-    "risk_score":         rng.uniform(0, 4, legit),
-    "recommendation":     rng.choice(["approve", "review"], legit, p=[0.85, 0.15]),
-    "fraud_label":        np.zeros(legit, dtype=int),
-})
+ref_legit = pd.DataFrame(
+    {
+        "transaction_amount": rng.uniform(100, 8_000, legit),
+        "hour_of_day": rng.integers(8, 20, legit),  # business hours
+        "is_overseas": rng.choice([0, 1], legit, p=[0.8, 0.2]).astype(float),
+        "risk_score": rng.uniform(0, 4, legit),
+        "recommendation": rng.choice(["approve", "review"], legit, p=[0.85, 0.15]),
+        "fraud_label": np.zeros(legit, dtype=int),
+    }
+)
 
-ref_suspic = pd.DataFrame({
-    "transaction_amount": rng.uniform(8_000, 50_000, suspic),
-    "hour_of_day":        rng.integers(0, 6, suspic),        # odd hours
-    "is_overseas":        np.ones(suspic),
-    "risk_score":         rng.uniform(7, 10, suspic),
-    "recommendation":     rng.choice(["review", "reject"], suspic, p=[0.3, 0.7]),
-    "fraud_label":        np.ones(suspic, dtype=int),
-})
+ref_suspic = pd.DataFrame(
+    {
+        "transaction_amount": rng.uniform(8_000, 50_000, suspic),
+        "hour_of_day": rng.integers(0, 6, suspic),  # odd hours
+        "is_overseas": np.ones(suspic),
+        "risk_score": rng.uniform(7, 10, suspic),
+        "recommendation": rng.choice(["review", "reject"], suspic, p=[0.3, 0.7]),
+        "fraud_label": np.ones(suspic, dtype=int),
+    }
+)
 
-reference = pd.concat([ref_legit, ref_suspic], ignore_index=True).sample(
-    frac=1, random_state=42
-).reset_index(drop=True)
+reference = (
+    pd.concat([ref_legit, ref_suspic], ignore_index=True)
+    .sample(frac=1, random_state=42)
+    .reset_index(drop=True)
+)
 
 # ── Current dataset: Week 3 — drifted ─────────────────────────────────────
 # 50% high-risk, 60% overseas, larger amounts
 
 n_cur = 50
-cur_legit  = int(n_cur * 0.5)
+cur_legit = int(n_cur * 0.5)
 cur_suspic = n_cur - cur_legit
 
-cur_l = pd.DataFrame({
-    "transaction_amount": rng.uniform(5_000, 20_000, cur_legit),
-    "hour_of_day":        rng.integers(6, 22, cur_legit),
-    "is_overseas":        rng.choice([0, 1], cur_legit, p=[0.4, 0.6]).astype(float),
-    "risk_score":         rng.uniform(1, 6, cur_legit),
-    "recommendation":     rng.choice(["approve", "review"], cur_legit, p=[0.6, 0.4]),
-    "fraud_label":        np.zeros(cur_legit, dtype=int),
-})
+cur_l = pd.DataFrame(
+    {
+        "transaction_amount": rng.uniform(5_000, 20_000, cur_legit),
+        "hour_of_day": rng.integers(6, 22, cur_legit),
+        "is_overseas": rng.choice([0, 1], cur_legit, p=[0.4, 0.6]).astype(float),
+        "risk_score": rng.uniform(1, 6, cur_legit),
+        "recommendation": rng.choice(["approve", "review"], cur_legit, p=[0.6, 0.4]),
+        "fraud_label": np.zeros(cur_legit, dtype=int),
+    }
+)
 
-cur_s = pd.DataFrame({
-    "transaction_amount": rng.uniform(20_000, 80_000, cur_suspic),
-    "hour_of_day":        rng.integers(0, 5, cur_suspic),
-    "is_overseas":        np.ones(cur_suspic),
-    "risk_score":         rng.uniform(6, 10, cur_suspic),
-    "recommendation":     np.full(cur_suspic, "reject"),
-    "fraud_label":        np.ones(cur_suspic, dtype=int),
-})
+cur_s = pd.DataFrame(
+    {
+        "transaction_amount": rng.uniform(20_000, 80_000, cur_suspic),
+        "hour_of_day": rng.integers(0, 5, cur_suspic),
+        "is_overseas": np.ones(cur_suspic),
+        "risk_score": rng.uniform(6, 10, cur_suspic),
+        "recommendation": np.full(cur_suspic, "reject"),
+        "fraud_label": np.ones(cur_suspic, dtype=int),
+    }
+)
 
-current = pd.concat([cur_l, cur_s], ignore_index=True).sample(
-    frac=1, random_state=99
-).reset_index(drop=True)
+current = (
+    pd.concat([cur_l, cur_s], ignore_index=True)
+    .sample(frac=1, random_state=99)
+    .reset_index(drop=True)
+)
 
 # ── Numeric columns used across reports ───────────────────────────────────
 num_cols = ["transaction_amount", "hour_of_day", "is_overseas", "risk_score"]
@@ -108,10 +124,10 @@ suite.run(reference_data=reference[num_cols], current_data=current[num_cols])
 suite_dict = suite.as_dict()
 
 # ── Parse test results ─────────────────────────────────────────────────────
-tests     = suite_dict.get("tests", [])
-n_pass    = sum(1 for t in tests if t.get("status") == "SUCCESS")
-n_fail    = len(tests) - n_pass
-failed    = [t.get("name", "unknown") for t in tests if t.get("status") != "SUCCESS"]
+tests = suite_dict.get("tests", [])
+n_pass = sum(1 for t in tests if t.get("status") == "SUCCESS")
+n_fail = len(tests) - n_pass
+failed = [t.get("name", "unknown") for t in tests if t.get("status") != "SUCCESS"]
 
 if n_fail == 0:
     overall_status = "HEALTHY ✅"
@@ -135,9 +151,11 @@ try:
 except Exception:
     pass
 
+
 def drift_line(col: str) -> str:
     detected = col_drift.get(col, False)
     return f"  - {col}: {'DRIFT DETECTED 🔴' if detected else 'NO DRIFT ✅'}"
+
 
 # ── Console summary ────────────────────────────────────────────────────────
 print("""
