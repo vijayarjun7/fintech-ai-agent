@@ -105,6 +105,30 @@ mlflow ui --port 5050
 | SOX | Section 302/404, 7-year retention |
 | PCI-DSS | CVV rules, TLS 1.2+, AES-256 |
 
+## Docker
+
+```bash
+# Build image
+docker build -t fintech-ai-agent .
+
+# Run FastAPI
+docker run -p 8000:8000 \
+  -e ANTHROPIC_API_KEY=your_key \
+  fintech-ai-agent
+
+# Test health
+curl http://localhost:8000/api/health
+
+# Run with docker-compose
+docker-compose up
+
+# Run Gradio UI instead
+docker run -p 7860:7860 \
+  -e ANTHROPIC_API_KEY=your_key \
+  fintech-ai-agent \
+  python app.py
+```
+
 ## Why the Eval Layer Matters
 
 In fintech, AI cannot hallucinate. A fabricated regulation reference = legal liability.
